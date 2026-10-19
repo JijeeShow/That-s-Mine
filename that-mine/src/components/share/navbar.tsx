@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, useSyncExternalStore } from "react";
-import { getScrollOffset, subscribeScrollOffset } from "@/components/scrollBridge";
+import { useEffect, useState } from "react";
+import { useScrollOffset } from "@/components/scrollBridge";
 
 const NAV_LINKS = [
   { href: "/", label: "Home" },
@@ -11,58 +11,48 @@ const NAV_LINKS = [
   { href: "#contact", label: "Contact" },
 ];
 
-// Navbar hides itself once the page has scrolled past this many pixels.
-// Used for normal pages that scroll the actual window.
-const HIDE_THRESHOLD = 150;
-
-// The Sharky scene (see SharkyScrollScene.tsx) doesn't scroll the window at
-// all - it scrolls its own container inside <Canvas> and only exposes
-// progress as a 0-1 offset via scrollBridge.ts. ~0.05 of that progress is
-// roughly equivalent to the 150px threshold above on a typical viewport.
+// Hides once the window has scrolled past this many px, or the ocean track past this fraction.
+const HIDE_THRESHOLD_PX = 150;
 const HIDE_THRESHOLD_OFFSET = 0.05;
 
 export default function Navbar() {
   const [open, setOpen] = useState(false);
   const [windowHidden, setWindowHidden] = useState(false);
-  const canvasOffset = useSyncExternalStore(
-    subscribeScrollOffset,
-    getScrollOffset,
-    () => 0
-  );
+  const oceanOffset = useScrollOffset();
 
   useEffect(() => {
-    const handleScroll = () => {
-      setWindowHidden(window.scrollY > HIDE_THRESHOLD);
-    };
+    const handleScroll = () => setWindowHidden(window.scrollY > HIDE_THRESHOLD_PX);
     handleScroll();
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  const hidden = windowHidden || canvasOffset > HIDE_THRESHOLD_OFFSET;
+  const hidden = windowHidden || oceanOffset > HIDE_THRESHOLD_OFFSET;
 
   return (
     <header
-      className={`fixed inset-x-0 top-0 z-50 border-b border-black/10 bg-white/70 backdrop-blur-md dark:border-white/10 dark:bg-black/60 ${
-        hidden ? "hidden" : ""
+      className={`fixed left-0 right-0 top-0 z-50 border-b border-white/15 bg-[#0d3d50]/35 backdrop-blur-md shadow-[0_4px_30px_rgba(0,0,0,0.15)]
+        transition-opacity duration-300 ease-in-out
+        ${
+        hidden ? "opacity-0 pointer-events-none" : "opacity-100"
       }`}
     >
       <nav className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
         <Link
           href="/"
           onClick={() => setOpen(false)}
-          className="text-lg font-semibold tracking-tight text-zinc-950 dark:text-zinc-50"
+          className="text-lg font-semibold tracking-wide text-white [text-shadow:0_2px_8px_rgba(0,0,0,0.4)]"
         >
           That&apos;s Mine
         </Link>
 
         {/* Desktop links */}
-        <ul className="hidden items-center gap-8 text-sm font-medium text-zinc-700 dark:text-zinc-300 sm:flex">
+        <ul className="hidden items-center gap-8 text-sm font-medium uppercase tracking-wider text-white/80 sm:flex">
           {NAV_LINKS.map((link) => (
             <li key={link.href}>
               <Link
                 href={link.href}
-                className="transition-colors hover:text-zinc-950 dark:hover:text-white"
+                className="transition-colors hover:text-white"
               >
                 {link.label}
               </Link>
@@ -76,7 +66,7 @@ export default function Navbar() {
           aria-label={open ? "Close menu" : "Open menu"}
           aria-expanded={open}
           onClick={() => setOpen((v) => !v)}
-          className="flex h-9 w-9 items-center justify-center rounded-full text-zinc-950 transition-colors hover:bg-black/5 dark:text-zinc-50 dark:hover:bg-white/10 sm:hidden"
+          className="flex h-9 w-9 items-center justify-center rounded-full text-white transition-colors hover:bg-white/10 sm:hidden"
         >
           <span className="relative block h-4 w-5">
             <span
@@ -100,13 +90,13 @@ export default function Navbar() {
 
       {/* Mobile menu panel */}
       {open && (
-        <ul className="flex flex-col gap-1 border-t border-black/10 bg-white/95 px-6 py-4 text-sm font-medium text-zinc-700 backdrop-blur-md dark:border-white/10 dark:bg-black/90 dark:text-zinc-300 sm:hidden">
+        <ul className="flex flex-col gap-1 border-t border-white/15 bg-[#0d3d50]/60 px-6 py-4 text-sm font-medium uppercase tracking-wider text-white/80 backdrop-blur-md sm:hidden">
           {NAV_LINKS.map((link) => (
             <li key={link.href}>
               <Link
                 href={link.href}
                 onClick={() => setOpen(false)}
-                className="block rounded-md px-2 py-2 transition-colors hover:bg-black/5 hover:text-zinc-950 dark:hover:bg-white/10 dark:hover:text-white"
+                className="block rounded-md px-2 py-2 transition-colors hover:bg-white/10 hover:text-white"
               >
                 {link.label}
               </Link>

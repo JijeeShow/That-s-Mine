@@ -3,6 +3,16 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  /* Ocean palette, sky to abyss - the ocean layers step through these. */
+  --sky-top: #6cb7e8;
+  --sky-mid: #a9dcef;
+  --sky-bottom: #e4f6f4;
+  --sea-shallow: #d9f3ee;
+  --sea-light: #9fdce0;
+  --sea-mid: #58bfd6;
+  --sea-mid-deep: #489db1;
+  --sea-deep: #146c8b;
+  --sea-deep-back: #082f3d;
 }
 
 @theme inline {
@@ -25,39 +35,7 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
-@keyframes bubble-rise {
-  0% {
-    transform: translate(0, 0);
-    opacity: 0;
-  }
-  8% {
-    opacity: var(--bubble-opacity, 0.5);
-  }
-  92% {
-    opacity: var(--bubble-opacity, 0.5);
-  }
-  100% {
-    transform: translate(var(--drift, 16px), -115vh);
-    opacity: 0;
-  }
-}
-
-.ocean-bubble {
-  position: fixed;
-  bottom: -5vh;
-  border-radius: 9999px;
-  background: radial-gradient(
-    circle at 30% 30%,
-    rgba(255, 255, 255, 0.95),
-    rgba(255, 255, 255, 0.15) 60%,
-    transparent 75%
-  );
-  animation-name: bubble-rise;
-  animation-timing-function: linear;
-  animation-iteration-count: infinite;
-  pointer-events: none;
-}
-
+/* Scroll hint arrow in the intro. */
 @keyframes bounce-down {
   0%,
   100% {
@@ -70,12 +48,39 @@ body {
   }
 }
 
+/* translateY only - no rotate(). A rotated box's bounding box is bigger than
+   the unrotated one, and react-three-fiber reallocates the WebGL canvas
+   whenever its measured size changes. This runs forever, so rotating would
+   churn the canvas constantly; translateY never changes width/height. */
 @keyframes boat-bob {
   0%,
   100% {
-    transform: translateY(0) rotate(-2deg);
+    transform: translateY(0);
   }
   50% {
-    transform: translateY(-6px) rotate(2deg);
+    transform: translateY(-6px);
+  }
+}
+
+/* Sideways sway for the wave layers. Their svg is 200% wide with the wave
+   pattern repeated twice, so sliding exactly -50% lands on an identical phase
+   and loops with no seam. Kept on its own element, separate from the
+   scroll-driven translateY, so scroll re-renders never interrupt it. */
+@keyframes wave-sway {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+/* Slow up-and-down swell for the wave layers; translateY only so nothing re-lays out. */
+@keyframes wave-bob {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-12px);
   }
 }

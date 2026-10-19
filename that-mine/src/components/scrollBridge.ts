@@ -1,19 +1,18 @@
-// Tiny pub/sub that turns our own scroll container's position (see
-// ScrollLayer in OceanScene.tsx) into a 0-1 "offset" that other components
-// (Navbar, the ocean background, depth readout, ...) can read without
-// prop-drilling.
+// Tiny pub/sub sharing the page's scroll position between components that
+// don't know about each other (Navbar, the ocean layers). OceanScene's
+// ScrollDriver is the only writer.
 //
-// State lives on `window` rather than in module-scope variables because a
-// component loaded via next/dynamic({ ssr: false }) can end up in its own
-// bundle chunk with its own separate copy of this module - module-scope
-// state wouldn't be shared with the copy used elsewhere (e.g. Navbar).
-// `window` is the one true global no matter how many module instances
-// exist.
+// State lives on `window`, not in module scope, because a component loaded
+// via next/dynamic({ ssr: false }) can land in its own bundle chunk with its
+// own copy of this module - `window` is the one true global.
+
+import { useSyncExternalStore } from "react";
 
 type Listener = (offset: number) => void;
 
 type Store = {
-  offset: number;
+  offset: number; // 0-1 fraction of the ocean track scrolled
+  px: number; // raw px into the track, for anything that must finish after an exact distance
   listeners: Set<Listener>;
 };
 
@@ -23,30 +22,29 @@ declare global {
   }
 }
 
+const newStore = (): Store => ({ offset: 0, px: 0, listeners: new Set() });
+
 function getStore(): Store {
-  if (typeof window === "undefined") {
-    // SSR: no shared window, just hand back a throwaway store.
-    return { offset: 0, listeners: new Set() };
-  }
-  if (!window.__scrollBridge) {
-    window.__scrollBridge = { offset: 0, listeners: new Set() };
-  }
-  return window.__scrollBridge;
+  if (typeof window === "undefined") return newStore(); // SSR: throwaway store
+  return (window.__scrollBridge ??= newStore());
 }
 
-export function setScrollOffset(offset: number) {
+export function setScrollOffset(offset: number, px: number = 0) {
   const store = getStore();
-  if (offset === store.offset) return;
+  if (offset === store.offset && px === store.px) return;
   store.offset = offset;
+  store.px = px;
   store.listeners.forEach((listener) => listener(offset));
 }
 
-export function getScrollOffset() {
-  return getStore().offset;
-}
+export const getScrollOffset = () => getStore().offset;
+export const getScrollPx = () => getStore().px;
 
 export function subscribeScrollOffset(listener: Listener) {
   const store = getStore();
   store.listeners.add(listener);
   return () => store.listeners.delete(listener);
 }
+
+export const useScrollOffset = () => useSyncExternalStore(subscribeScrollOffset, getScrollOffset, () => 0);
+export const useScrollPx = () => useSyncExternalStore(subscribeScrollOffset, getScrollPx, () => 0);
