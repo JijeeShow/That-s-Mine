@@ -3,11 +3,13 @@
 import dynamic from "next/dynamic";
 import { SEA_LEVEL_PERCENT } from "../../lib/const/constants";
 import { useScrollPx } from "../scrollBridge";
-import { useViewportHeight } from "../../lib/hooks";
+import { useSmoothValue, useViewportHeight } from "../../lib/hooks";
+import SkyDecor from "./skydecor";
 
 const Boat3D = dynamic(() => import("../Boat3D"), { ssr: false });
 
-const BOAT_TOP_PERCENT = SEA_LEVEL_PERCENT + 5; // starts 5% below sea level
+const BOAT_TOP_PERCENT = SEA_LEVEL_PERCENT - 4; // top of the boat's box; the hull meets the water well below the horizon
+const BOAT_RISE_VH = 4; // how far it drifts toward the horizon while sailing away (stays below it)
 
 function easeOutCubic(t: number) {
   return 1 - Math.pow(1 - t, 3);
@@ -18,8 +20,8 @@ export default function SkyOverlay() {
   const px = useScrollPx();
   const vh = useViewportHeight();
   const progress = vh > 0 ? Math.min(1, px / (vh * 1.1)) : 0; // 1.1 screens to slide away
-  const boatProgress = easeOutCubic(Math.min(1, px / 500)); // 500px of scroll to finish sailing
-  const boat3DProgress = Math.round(boatProgress * 20) / 20; // nearest 5% - coarser, cuts WebGL redraws
+  // 500px of scroll to finish sailing; eased per frame so wheel steps glide instead of jumping.
+  const boatProgress = useSmoothValue(easeOutCubic(Math.min(1, px / 500)), 0.12, 0.0005);
   const translateVh = -progress * 100;
   const opacity = 1 - Math.max(0, (progress - 0.85) / 0.15); // only fade right at the end
 
@@ -55,6 +57,7 @@ export default function SkyOverlay() {
           background: `linear-gradient(to bottom, var(--sea-shallow) 0%, var(--sea-light) 65%, var(--sea-mid) 100%)`,
         }}
       />
+      <SkyDecor px={px} />
       {/* Waterline shimmer */}
       <div
         style={{
@@ -67,22 +70,19 @@ export default function SkyOverlay() {
           filter: "blur(1px)",
         }}
       />
+      {/* The boat rocks inside its own 3D scene; this box only carries it across the water. */}
       <div
         style={{
           position: "absolute",
-          left: "10%",
+          left: "2%",
           top: `${BOAT_TOP_PERCENT}%`,
-          transform: `translateX(${boatProgress * 10}vw) translateY(-${
-            boatProgress * (BOAT_TOP_PERCENT - 45)
-          }vh)`, // drifts 10vw right, rises toward 45% of viewport height
+          width: 480,
+          height: 290,
           pointerEvents: "none",
-          width: 260, // box the <Bounds>-fitted ship sits in
-          height: 220,
+          transform: `translate(${boatProgress * 12}vw, -${boatProgress * BOAT_RISE_VH}vh)`, // drifts right and a little toward the horizon
         }}
       >
-        <div style={{ width: "100%", height: "100%", animation: "boat-bob 4s ease-in-out infinite" }}>
-          <Boat3D progress={boat3DProgress} />
-        </div>
+        <Boat3D progress={boatProgress} />
       </div>
     </div>
   );

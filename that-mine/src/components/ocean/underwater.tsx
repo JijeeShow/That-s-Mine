@@ -102,3 +102,97 @@ export function SeaDepthTint() {
     />
   );
 }
+
+// Soft diagonal shafts of light from the surface. They fade in once the wave has covered the
+// screen, then dim with depth, and drift sideways slowly as you scroll.
+const RAYS = [
+  { left: 6, width: 10, alpha: 0.26, drift: 0.04 },
+  { left: 28, width: 7, alpha: 0.2, drift: 0.07 },
+  { left: 50, width: 12, alpha: 0.28, drift: 0.03 },
+  { left: 73, width: 8, alpha: 0.2, drift: 0.06 },
+];
+
+export function SeaLightRays() {
+  const pastCover = usePxPastCover();
+  const vh = useViewportHeight();
+
+  if (pastCover <= 0 || vh === 0) return null;
+
+  const entrance = Math.min(1, pastCover / 200);
+  const depth = Math.min(1, pastCover / (vh * 1.2));
+
+  return (
+    <div
+      style={{
+        position: "absolute",
+        inset: 0,
+        zIndex: 4,
+        pointerEvents: "none",
+        overflow: "hidden",
+        opacity: entrance * (1 - 0.7 * depth),
+      }}
+    >
+      {RAYS.map((r, i) => (
+        <div
+          key={i}
+          style={{
+            position: "absolute",
+            top: "-15vh",
+            left: `${r.left}%`,
+            width: `${r.width}vw`,
+            height: "140vh",
+            transformOrigin: "top center",
+            transform: `rotate(16deg) translateX(${pastCover * r.drift}px)`,
+            background: `linear-gradient(to right, transparent, rgba(255,255,255,${r.alpha}), transparent)`,
+            maskImage: "linear-gradient(to bottom, #000, transparent 85%)",
+            WebkitMaskImage: "linear-gradient(to bottom, #000, transparent 85%)",
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+// Tiny drifting specks (marine snow). Like the bubbles they move only with scroll; slower and
+// the other way round to look like they sink while you dive past.
+const SNOW = Array.from({ length: 26 }, (_, i) => ({
+  left: (i * 53 + 7) % 100,
+  size: 1.5 + ((i * 7) % 3),
+  speed: 0.25 + ((i * 13) % 10) / 20,
+  phase: (i * 397) % 1200,
+  alpha: 0.3 + ((i * 11) % 5) / 10,
+}));
+
+export function SeaSnow() {
+  const pastCover = usePxPastCover();
+  const vh = useViewportHeight();
+
+  if (pastCover <= 0 || vh === 0) return null;
+
+  const entrance = Math.min(1, pastCover / 200);
+
+  return (
+    <div style={{ position: "absolute", inset: 0, zIndex: 4, pointerEvents: "none", overflow: "hidden" }}>
+      {SNOW.map((s, i) => {
+        const traveled = (pastCover * s.speed + s.phase) % (vh + 20);
+        const x = Math.sin(traveled / 70 + i) * 6;
+        return (
+          <span
+            key={i}
+            style={{
+              position: "absolute",
+              left: `${s.left}%`,
+              bottom: -10,
+              width: s.size,
+              height: s.size,
+              borderRadius: "50%",
+              background: "white",
+              opacity: entrance * s.alpha,
+              transform: `translate(${x}px, -${traveled}px)`,
+            }}
+          />
+        );
+      })}
+    </div>
+  );
+}

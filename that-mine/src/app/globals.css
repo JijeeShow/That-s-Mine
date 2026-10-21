@@ -81,6 +81,24 @@ body {
     transform: translateY(0);
   }
   to {
-    transform: translateY(-12px);
+    transform: translateY(-16px);
+  }
+}
+
+/* Slow turn of a bubble's iridescent rim; rotating a circle never changes its box. */
+@keyframes bubble-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Lighthouse lamp breathing on the horizon. */
+@keyframes lamp-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
   }
 }
