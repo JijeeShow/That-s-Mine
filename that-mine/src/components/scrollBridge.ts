@@ -37,10 +37,10 @@ export function setScrollOffset(offset: number, px: number = 0) {
   store.listeners.forEach((listener) => listener(offset));
 }
 
-export const getScrollOffset = () => getStore().offset;
-export const getScrollPx = () => getStore().px;
+const getScrollOffset = () => getStore().offset;
+const getScrollPx = () => getStore().px;
 
-export function subscribeScrollOffset(listener: Listener) {
+function subscribeScrollOffset(listener: Listener) {
   const store = getStore();
   store.listeners.add(listener);
   return () => store.listeners.delete(listener);

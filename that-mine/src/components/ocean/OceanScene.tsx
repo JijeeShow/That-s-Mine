@@ -12,7 +12,7 @@ import DeepWaveSeam from "./waves";
 import Aboutme, { ABOUT_CHUNK_COUNT } from "../aboutme/Aboutme";
 
 // locked in view before the section releases into whatever comes next.
-const TRACK_VH = 1000;
+const TRACK_VH = 800;
 const BUBBLE_STAND_PX = 200; // scroll px a bubble rests still in the middle
 const BUBBLE_MOVE_PX = 360; // scroll px for it to give way to the next one
 

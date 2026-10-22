@@ -29,7 +29,7 @@ export function SeaFloorBubbles() {
       style={{
         position: "absolute",
         inset: 0,
-        zIndex: 5, // above the wave crest(4), below Intro(20)
+        zIndex: 4, // above the wave crest(4), below Intro(20)
         pointerEvents: "none",
         overflow: "hidden",
       }}

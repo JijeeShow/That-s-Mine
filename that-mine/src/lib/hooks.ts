@@ -20,7 +20,7 @@ export const WAVE_FRONT_TOP_OFFSET_PX = 100; // wave front's resting offset belo
 
 // Scroll px at which the front crest has risen past the top of the viewport
 // ("fully underwater"). The bubbles, depth tint and sand all switch on from here.
-export function useWaveCoverThreshold() {
+function useWaveCoverThreshold() {
   const vh = useViewportHeight();
   return vh > 0 ? (vh + WAVE_FRONT_TOP_OFFSET_PX) / WAVE_RISE_SPEED : Infinity;
 }

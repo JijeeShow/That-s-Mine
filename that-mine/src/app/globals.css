@@ -10,16 +10,7 @@
   --sea-shallow: #d9f3ee;
   --sea-light: #9fdce0;
   --sea-mid: #58bfd6;
-  --sea-mid-deep: #489db1;
   --sea-deep: #146c8b;
-  --sea-deep-back: #082f3d;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -45,20 +36,6 @@ body {
   50% {
     transform: translateY(10px);
     opacity: 0.5;
-  }
-}
-
-/* translateY only - no rotate(). A rotated box's bounding box is bigger than
-   the unrotated one, and react-three-fiber reallocates the WebGL canvas
-   whenever its measured size changes. This runs forever, so rotating would
-   churn the canvas constantly; translateY never changes width/height. */
-@keyframes boat-bob {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-6px);
   }
 }
 
@@ -89,6 +66,17 @@ body {
 @keyframes bubble-spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+/* Caustic light drifting over the sand. Each element sets its own start/end (--x0/--y0 -> --x1/--y1),
+   exactly one texture tile apart, so the loop has no seam. transform only, so it stays on the compositor. */
+@keyframes caustic-drift {
+  from {
+    transform: translate(var(--x0), var(--y0));
+  }
+  to {
+    transform: translate(var(--x1), var(--y1));
   }
 }
 

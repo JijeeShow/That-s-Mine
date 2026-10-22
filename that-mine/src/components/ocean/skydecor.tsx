@@ -3,62 +3,6 @@ import { SEA_LEVEL_PERCENT } from "../../lib/const/constants";
 // Everything here is positioned inside SkyOverlay, so it slides away with the sky. px drives a gentle
 // parallax: the farther a thing is, the less it moves.
 
-const WATER = 100 - SEA_LEVEL_PERCENT; // height of the water band, % of the screen
-
-// Ripple marks on the water: rows bunch up toward the horizon and spread out toward the viewer,
-// and nearer marks are longer, thicker and drift faster. Derived from the index so it never changes.
-const RIPPLES = Array.from({ length: 30 }, (_, k) => {
-  const row = Math.floor(k / 3);
-  const depth = (row + 1) / 10; // 0.1 far .. 1 near
-  return {
-    y: SEA_LEVEL_PERCENT + WATER * Math.pow(depth, 1.8) * 0.95,
-    x: ((k * 37 + row * 17) % 100) - 4,
-    length: 2 + depth * 6, // % of screen width
-    rise: 0.15 + depth * 0.5, // hump height, % of screen height
-    width: 0.8 + depth * 1.6, // stroke px
-    alpha: 0.25 + depth * 0.45,
-    speed: 0.02 + depth * 0.1,
-  };
-});
-
-// Flat clouds: overlapping circles on a rounded base, with a cooler band along the bottom.
-const CLOUDS = [
-  { left: 6, top: 12, width: 20, speed: 0.08 },
-  { left: 67, top: 9, width: 16, speed: 0.05 },
-  { left: 40, top: 22, width: 10, speed: 0.03 },
-];
-
-function Cloud({ id }: { id: string }) {
-  const shape = (
-    <>
-      <circle cx="30" cy="32" r="15" />
-      <circle cx="52" cy="23" r="20" />
-      <circle cx="76" cy="28" r="16" />
-      <circle cx="94" cy="34" r="11" />
-      <rect x="16" y="30" width="90" height="16" rx="8" />
-    </>
-  );
-  return (
-    <svg
-      viewBox="0 0 120 50"
-      style={{ display: "block", width: "100%", height: "auto" }}
-    >
-      <defs>
-        <clipPath id={id}>{shape}</clipPath>
-      </defs>
-      <g fill="white">{shape}</g>
-      <rect
-        x="0"
-        y="37"
-        width="120"
-        height="13"
-        fill="#d4ebf7"
-        clipPath={`url(#${id})`}
-      />
-    </svg>
-  );
-}
-
 function Lighthouse() {
   return (
     <svg

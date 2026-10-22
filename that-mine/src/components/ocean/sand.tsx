@@ -1,18 +1,20 @@
 "use client";
 
-import dynamic from "next/dynamic";
-import { useEffect, useMemo, useState } from "react";
+import { type CSSProperties, useEffect, useMemo, useState } from "react";
 import {
   usePxPastCover,
   useSmoothValue,
   useViewportHeight,
 } from "../../lib/hooks";
 
-const Rock3D = dynamic(() => import("../Rock3D"), { ssr: false });
+// Cliffs are stills of the Environment_Cliff 3D models, rendered in exactly the frame their old WebGL
+// canvas had (box aspect 54:52, same camera, lights and fit margin), so an <img> in the same box looks
+// identical without a WebGL context per rock.
+const cliffSrc = (cliff: number) => `/rocks/cliff_${cliff}_frame.webp`;
 
 const SEA_FLOOR_RISE_SPEED = 3; // px risen per px scrolled once the wave has covered the screen
-const SEA_FLOOR_DELAY_PX = 300; // extra scroll after the wave covers the screen before the sand starts rising
-const SEA_FLOOR_HOLD_PX = 400; // scroll px the sand stays still after reaching its resting spot, before it starts flowing
+const SEA_FLOOR_DELAY_PX = 150; // extra scroll after the wave covers the screen before the sand starts rising
+const SEA_FLOOR_HOLD_PX = 250; // scroll px the sand stays still after reaching its resting spot, before it starts flowing
 export const PX_PER_LAYER = 300; // scroll px for one sand layer to flow forward by one place
 
 // Sand is an endless conveyor of numbered layers n = 0, 1, 2, ... Layer n sits at depth p = n - t:
@@ -22,37 +24,78 @@ export const PX_PER_LAYER = 300; // scroll px for one sand layer to flow forward
 // Values at p = -3, -2, -1, 0, 1, 2, 3 (smooth curve between). Layers keep sinking well past -1, so rocks
 // standing on a hilltop are fully below the screen before the layer is removed.
 const TOP_VH = [56, 41, 26, 11, 7.5, 2.2, -0.5]; // where the dune's top edge sits below the strip's top, in vh
+// Only a gentle darkening with depth - the haze below does most of the work, and darker browns
+// blended toward blue turn muddy.
 const SAND_FROM = [
   "#f3e3b8",
   "#f3e3b8",
   "#f3e3b8",
   "#f3e3b8",
-  "#e0c386",
-  "#c9a468",
-  "#b08f58",
+  "#e9d5a2",
+  "#dfc791",
+  "#d4ba82",
 ];
 const SAND_TO = [
   "#d9bb82",
   "#d9bb82",
   "#d9bb82",
   "#d9bb82",
-  "#c2a066",
-  "#a8854f",
-  "#8f7348",
+  "#cfae78",
+  "#c4a26c",
+  "#b89763",
 ];
+
+// Far layers fade toward the water in front of them, like haze: sand, corals and rocks all blend toward
+// HAZE_COLOR by haze(p) - nothing up front, the most on the horizon.
+const HAZE_COLOR = [0x35, 0x8f, 0xde]; // the water just above the sand
+const HAZE_CSS = `rgb(${HAZE_COLOR.join(",")})`;
+const haze = (p: number) => 0.65 * Math.min(1, Math.max(0, (p - 0.3) / 2.7));
+
+// Caustics: light rippling over the sand - two copies of one tileable texture drifting across each other.
+// w/h = tile size in px, squashed vertically since the sea floor is seen at a low angle;
+// from/to = start and end offset in whole tiles, so each loop is seamless.
+const CAUSTIC_SRC = "/decorate/caustics.webp";
+const CAUSTICS = [
+  { w: 720, h: 300, from: [0, 0], to: [-0.5, -1], seconds: 56 },
+  { w: 860, h: 380, from: [-1, 0], to: [0, -1], seconds: 64 },
+];
+const CAUSTIC_MAX = 0.55; // strength on the front layer, fading toward the back
+const CAUSTIC_TOP_VH = -10; // band covered, in vh around the layer's top line (hills peak around -8.5)
+const CAUSTIC_BOTTOM_VH = 24;
+
+const CORAL_FADE = "linear-gradient(to bottom, #000 90%, transparent 95%)"; // coral bases melt into the sand
+
+// The layer's sand shape as a CSS mask over the caustics band, so the light only lands on sand.
+const maskCache = new Map<string, string>();
+function sandMask(body: string) {
+  let url = maskCache.get(body);
+  if (!url) {
+    const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 ${CAUSTIC_TOP_VH} 1900 ${CAUSTIC_BOTTOM_VH - CAUSTIC_TOP_VH}' preserveAspectRatio='none'><path d='${body}'/></svg>`;
+    url = `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+    maskCache.set(body, url);
+  }
+  return url;
+}
 
 // Each pattern is a terrain profile: surface height at 9 evenly spaced points across the screen,
 // in vh below the layer's top line (negative = a hill rising above it, positive = a dip).
 // Items stand on that surface wherever they are: at = center, % across; h = height in vh;
 // sink = how far the base sits below the surface, in vh. Cliffs also need w (box width in vh).
-type Item = { file?: string; cliff?: number; at: number; w?: number; h: number; sink: number };
+type Item = {
+  file?: string;
+  cliff?: number;
+  at: number;
+  w?: number;
+  h: number;
+  sink: number;
+};
 const PATTERNS: { surface: number[]; items: Item[] }[] = [
   {
     // twin peaks with a dip between
     surface: [2, -3, -6, -2, 2.5, 1, -4.5, -2, 1.5],
     items: [
       { file: "coral_1_blue.png", at: 25, h: 18, sink: 5.5 },
-      { file: "coral_8_indigo.png", at: 75, h: 18, sink: 1.5 },
+      { file: "coral_8_indigo.png", at: 75, h: 18, sink: 6.5 },
       { file: "coral_2_pink.png", at: 51, h: 11, sink: 7 },
     ],
   },
@@ -97,7 +140,11 @@ const PATTERNS: { surface: number[]; items: Item[] }[] = [
 // Catmull-Rom through evenly spaced heights. With even x spacing the curve's x is linear in the
 // segment parameter, so the same formula both draws the path and tells the height under any point.
 const catmull = (p0: number, p1: number, p2: number, p3: number, f: number) =>
-  0.5 * (2 * p1 + (p2 - p0) * f + (2 * p0 - 5 * p1 + 4 * p2 - p3) * f * f + (3 * p1 - p0 - 3 * p2 + p3) * f * f * f);
+  0.5 *
+  (2 * p1 +
+    (p2 - p0) * f +
+    (2 * p0 - 5 * p1 + 4 * p2 - p3) * f * f +
+    (3 * p1 - p0 - 3 * p2 + p3) * f * f * f);
 
 function surfaceAt(ys: number[], atPercent: number) {
   const x = (Math.min(100, Math.max(0, atPercent)) / 100) * (ys.length - 1);
@@ -159,16 +206,18 @@ function sample(points: number[], p: number) {
   );
 }
 
-function sampleColor(hexes: string[], p: number) {
+// Color at depth p, blended `hazeAmount` of the way toward HAZE_COLOR.
+function sampleColor(hexes: string[], p: number, hazeAmount: number) {
   const x = Math.min(hexes.length - 1, Math.max(0, p + 3));
   const i = Math.min(hexes.length - 2, Math.floor(x));
   const f = x - i;
-  const ch = (k: number) => {
-    const a = parseInt(hexes[i].slice(k, k + 2), 16);
-    const b = parseInt(hexes[i + 1].slice(k, k + 2), 16);
-    return Math.round(a + (b - a) * f);
+  const ch = (c: number) => {
+    const a = parseInt(hexes[i].slice(1 + c * 2, 3 + c * 2), 16);
+    const b = parseInt(hexes[i + 1].slice(1 + c * 2, 3 + c * 2), 16);
+    const v = a + (b - a) * f;
+    return Math.round(v + (HAZE_COLOR[c] - v) * hazeAmount);
   };
-  return `rgb(${ch(1)},${ch(3)},${ch(5)})`;
+  return `rgb(${ch(0)},${ch(1)},${ch(2)})`;
 }
 
 // The layer's svg spans from SVG_TOP_VH above its top line to SVG_BOTTOM_VH below it, with y in vh,
@@ -176,13 +225,53 @@ function sampleColor(hexes: string[], p: number) {
 const SVG_TOP_VH = -15;
 const SVG_BOTTOM_VH = 40;
 
-function SandLayer({ n, p, pattern }: { n: number; p: number; pattern: (typeof PATTERNS)[number] }) {
+// Water-colored wash over a coral or rock, cut to the image's own shape with a mask. Only its opacity
+// changes as the layer moves, which the compositor handles - no filter re-run every frame.
+function HazeTint({
+  src,
+  amount,
+  fade,
+}: {
+  src: string;
+  amount: number;
+  fade?: boolean;
+}) {
+  const mask = fade ? `url(${src}), ${CORAL_FADE}` : `url(${src})`;
+  return (
+    <div
+      style={{
+        position: "absolute",
+        inset: 0,
+        background: HAZE_CSS,
+        opacity: amount,
+        maskImage: mask,
+        WebkitMaskImage: mask,
+        maskSize: "100% 100%",
+        WebkitMaskSize: "100% 100%",
+        maskComposite: "intersect",
+        WebkitMaskComposite: "source-in",
+      }}
+    />
+  );
+}
+
+function SandLayer({
+  n,
+  p,
+  pattern,
+}: {
+  n: number;
+  p: number;
+  pattern: (typeof PATTERNS)[number];
+}) {
   const { surface, items } = pattern;
   const top = sample(TOP_VH, p);
   const scale = 1 - 0.1 * Math.min(3, Math.max(0, p)); // corals shrink slightly with distance
   const itemOpacity = Math.min(1, Math.max(0, (2.5 - p) / 0.5)); // items appear only once their dune has mostly faded in
+  const hz = haze(p);
   const line = surfacePath(surface);
   const body = `${line} L1900,${SVG_BOTTOM_VH} L0,${SVG_BOTTOM_VH} Z`;
+  const mask = sandMask(body);
 
   return (
     <div
@@ -209,25 +298,94 @@ function SandLayer({ n, p, pattern }: { n: number; p: number; pattern: (typeof P
       >
         <defs>
           {/* Fixed in vh, not per shape: hilltops catch the light and dips sit in shade */}
-          <linearGradient id={`sandLayer${n}`} gradientUnits="userSpaceOnUse" x1="0" y1="-9" x2="0" y2="14">
-            <stop offset="0%" stopColor={sampleColor(SAND_FROM, p)} />
-            <stop offset="100%" stopColor={sampleColor(SAND_TO, p)} />
+          <linearGradient
+            id={`sandLayer${n}`}
+            gradientUnits="userSpaceOnUse"
+            x1="0"
+            y1="-9"
+            x2="0"
+            y2="14"
+          >
+            <stop offset="0%" stopColor={sampleColor(SAND_FROM, p, hz)} />
+            <stop offset="100%" stopColor={sampleColor(SAND_TO, p, hz)} />
           </linearGradient>
-          <filter id={`sandShade${n}`} x="-5%" y="-50%" width="110%" height="200%">
+          <filter
+            id={`sandShade${n}`}
+            x="-5%"
+            y="-50%"
+            width="110%"
+            height="200%"
+          >
             <feGaussianBlur stdDeviation="14 0.9" />
           </filter>
         </defs>
         {/* Soft shadow this layer casts onto the one behind it */}
-        <path d={body} transform="translate(0,-1.1)" fill="rgba(70,45,15,0.22)" filter={`url(#sandShade${n})`} />
+        <path
+          d={body}
+          transform="translate(0,-1.1)"
+          fill="rgba(70,45,15,0.22)"
+          filter={`url(#sandShade${n})`}
+        />
         <path d={body} fill={`url(#sandLayer${n})`} />
         {/* Thin rim of light along the crest */}
-        <path d={line} fill="none" stroke="rgba(255,246,220,0.6)" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
+        <path
+          d={line}
+          fill="none"
+          stroke={`rgba(255,246,220,${0.6 * (1 - hz)})`}
+          strokeWidth="1.5"
+          vectorEffect="non-scaling-stroke"
+        />
       </svg>
+
+      {/* Caustics, only while the layer is on screen. The drift is a CSS transform animation, so it costs
+          no React renders or repaints; the mask keeps the light on this layer's sand. */}
+      {p > -1.3 && p < 3 && (
+        <div
+          style={{
+            position: "absolute",
+            left: 0,
+            top: `${CAUSTIC_TOP_VH}vh`,
+            width: "100%",
+            height: `${CAUSTIC_BOTTOM_VH - CAUSTIC_TOP_VH}vh`,
+            overflow: "hidden",
+            opacity: CAUSTIC_MAX * Math.min(1, Math.max(0, 1 - p / 3)),
+            maskImage: mask,
+            WebkitMaskImage: mask,
+            maskSize: "100% 100%",
+            WebkitMaskSize: "100% 100%",
+            maskRepeat: "no-repeat",
+            WebkitMaskRepeat: "no-repeat",
+          }}
+        >
+          {CAUSTICS.map((c, i) => (
+            <div
+              key={i}
+              style={
+                {
+                  position: "absolute",
+                  left: 0,
+                  top: 0,
+                  width: `calc(100% + ${c.w}px)`,
+                  height: `calc(100% + ${c.h}px)`,
+                  backgroundImage: `url(${CAUSTIC_SRC})`,
+                  backgroundSize: `${c.w}px ${c.h}px`,
+                  opacity: 0.6,
+                  animation: `caustic-drift ${c.seconds}s linear infinite`,
+                  willChange: "transform",
+                  "--x0": `${c.from[0] * c.w}px`,
+                  "--y0": `${c.from[1] * c.h}px`,
+                  "--x1": `${c.to[0] * c.w}px`,
+                  "--y1": `${c.to[1] * c.h}px`,
+                } as CSSProperties
+              }
+            />
+          ))}
+        </div>
+      )}
 
       {items.map(({ file, cliff, at, w = 0, h, sink }) => {
         const ground = surfaceAt(surface, at); // vh below the layer's top line
         if (cliff) {
-          // No scale on anything holding a WebGL canvas: a size change would reallocate its buffer.
           return (
             <div
               key={`cliff${cliff}`}
@@ -240,7 +398,18 @@ function SandLayer({ n, p, pattern }: { n: number; p: number; pattern: (typeof P
                 opacity: itemOpacity,
               }}
             >
-              <Rock3D url={`/models/Environment_Cliff${cliff}.gltf`} />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={cliffSrc(cliff)}
+                alt=""
+                style={{
+                  display: "block",
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "contain",
+                }}
+              />
+              {hz > 0.01 && <HazeTint src={cliffSrc(cliff)} amount={hz} />}
             </div>
           );
         }
@@ -257,18 +426,35 @@ function SandLayer({ n, p, pattern }: { n: number; p: number; pattern: (typeof P
               transformOrigin: "bottom center",
             }}
           >
+            {/* Soft contact shadow where the coral meets the sand, so it stands in it rather than on it */}
+            <div
+              style={{
+                position: "absolute",
+                left: "50%",
+                bottom: "8%",
+                width: "75%",
+                height: "9%",
+                transform: "translate(-50%, 50%)",
+                borderRadius: "50%",
+                background:
+                  "radial-gradient(closest-side, rgba(70,45,15,0.42), rgba(70,45,15,0))",
+                opacity: 1 - hz,
+              }}
+            />
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={`/corals/${file}`}
               alt=""
               style={{
+                position: "relative", // paints above the shadow
                 display: "block",
                 height: "100%",
                 width: "auto",
-                maskImage: "linear-gradient(to bottom, #000 90%, transparent 95%)",
-                WebkitMaskImage: "linear-gradient(to bottom, #000 90%, transparent 95%)",
+                maskImage: CORAL_FADE,
+                WebkitMaskImage: CORAL_FADE,
               }}
             />
+            {hz > 0.01 && <HazeTint src={`/corals/${file}`} amount={hz} fade />}
           </div>
         );
       })}
@@ -305,17 +491,23 @@ export default function SeaFloor({ offset, t }: { offset: number; t: number }) {
   const [seed] = useState(() => Math.floor(Math.random() * 2 ** 32));
   const sequence = useMemo(() => makeSequence(seed, 64), [seed]);
 
-  // Fetch every rock model up front, so a rock never waits on the network when its layer arrives.
+  // Fetch every rock image up front, so a rock never pops in when its layer arrives.
   useEffect(() => {
-    const cliffs = new Set(PATTERNS.flatMap((pt) => pt.items.flatMap((it) => (it.cliff ? [it.cliff] : []))));
-    import("../Rock3D").then(({ preloadRock }) => cliffs.forEach((c) => preloadRock(`/models/Environment_Cliff${c}.gltf`)));
+    const cliffs = new Set(
+      PATTERNS.flatMap((pt) =>
+        pt.items.flatMap((it) => (it.cliff ? [it.cliff] : [])),
+      ),
+    );
+    cliffs.forEach((c) => {
+      new Image().src = cliffSrc(c);
+    });
   }, []);
 
   const layers = [];
   for (let n = Math.max(0, Math.floor(t) - 3); n <= Math.floor(t) + 4; n++) {
     const p = n - t;
-    // The next layer is mounted one step early (3 <= p < 4) while still invisible, so its rock's
-    // canvas is built and drawn before it fades in on the horizon.
+    // The next layer is mounted one step early (3 <= p < 4) while still invisible, so its images
+    // are decoded and drawn before it fades in on the horizon.
     if (p < -3 || p >= 4) continue;
     layers.push(
       <SandLayer
