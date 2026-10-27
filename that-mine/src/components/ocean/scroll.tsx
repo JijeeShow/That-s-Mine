@@ -39,36 +39,3 @@ export function ScrollDriver({
 
   return null;
 }
-
-// Adds a short decaying glide on top of native wheel scrolling so the page
-// doesn't stop dead the instant the wheel does. Never preventDefaults.
-export function MomentumScroll() {
-  useEffect(() => {
-    let velocity = 0;
-    let rafId: number | null = null;
-
-    const tick = () => {
-      if (Math.abs(velocity) < 0.5) {
-        velocity = 0;
-        rafId = null;
-        return;
-      }
-      window.scrollBy(0, velocity);
-      velocity *= 0.8; // decay per frame - short, gentle tail
-      rafId = requestAnimationFrame(tick);
-    };
-
-    const handleWheel = (e: WheelEvent) => {
-      velocity += e.deltaY * 0.05;
-      if (rafId === null) rafId = requestAnimationFrame(tick);
-    };
-
-    window.addEventListener("wheel", handleWheel, { passive: true });
-    return () => {
-      window.removeEventListener("wheel", handleWheel);
-      if (rafId !== null) cancelAnimationFrame(rafId);
-    };
-  }, []);
-
-  return null;
-}

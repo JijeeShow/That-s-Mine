@@ -190,9 +190,11 @@ function Words({ text, reveal }: { text: string; reveal: number }) {
 export default function Aboutme({
   progress,
   scroll,
+  dive = 0,
 }: {
   progress: number;
   scroll: number;
+  dive?: number; // 0 -> 1 after the last bubble: you rush forward past it toward the deeper zone
 }) {
   if (progress <= 0) return null;
 
@@ -221,9 +223,11 @@ export default function Aboutme({
         const opacity =
           clamp01(inT * (first ? 2 : 1.6)) *
           (1 - clamp01((outT - 0.45) / 0.45));
+        const diving = i === LAST_CHUNK ? dive : 0;
         const reveal =
           clamp01(1 - Math.abs(d) * 2.2) *
-          (first ? clamp01((progress - 0.6) / 0.4) : 1);
+          (first ? clamp01((progress - 0.6) / 0.4) : 1) *
+          (1 - clamp01(diving / 0.25)); // text clears as you start to rush past
 
         return (
           <div
@@ -236,8 +240,9 @@ export default function Aboutme({
               width: "70vh",
               height: "70vh",
               pointerEvents: "none",
-              opacity,
-              transform: `translate(${sway}px, 0) translate(${x}vw, ${y}vh) scale(${grow * (1 + jelly)}, ${grow * (1 - jelly)})`,
+              opacity: opacity * (1 - clamp01((diving - 0.6) / 0.4)),
+              // Rushing past: it grows as you close in, rises (you are heading down) and slides off to the side.
+              transform: `translate(${sway}px, 0) translate(${x - easeIn(diving) * 30}vw, ${y - easeIn(diving) * 95}vh) scale(${grow * (1 + easeIn(diving) * 1.3) * (1 + jelly)}, ${grow * (1 + easeIn(diving) * 1.3) * (1 - jelly)})`,
             }}
           >
             {/* Idle bob; separate element so it never fights the scroll-driven transform. */}
@@ -300,6 +305,7 @@ export default function Aboutme({
         if (local <= 0) return null;
         const jelly = 0.07 * Math.sin(local * 11) * (1 - local);
         const s = 0.5 + 0.5 * easeOutBack(local);
+        const away = easeIn(clamp01(dive / 0.7)); // fly out past you to their own side as you rush forward
         return (
           <div
             key={h.label}
@@ -311,8 +317,8 @@ export default function Aboutme({
               width: `${h.size}vh`,
               height: `${h.size}vh`,
               pointerEvents: "none",
-              opacity: clamp01(local * 1.5),
-              transform: `translate(${h.side * Math.pow(1 - local, 1.7) * 32}vw, ${(1 - easeOut(local)) * 45}vh) scale(${s * (1 + jelly)}, ${s * (1 - jelly)})`,
+              opacity: clamp01(local * 1.5) * (1 - clamp01((dive - 0.3) / 0.4)),
+              transform: `translate(${h.side * (Math.pow(1 - local, 1.7) * 32 + away * 55)}vw, ${(1 - easeOut(local)) * 45 - away * 50}vh) scale(${s * (1 + away * 1.2) * (1 + jelly)}, ${s * (1 + away * 1.2) * (1 - jelly)})`,
             }}
           >
             <span

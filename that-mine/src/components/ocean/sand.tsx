@@ -5,6 +5,8 @@ import {
   usePxPastCover,
   useSmoothValue,
   useViewportHeight,
+  WAVE_FRONT_TOP_OFFSET_PX,
+  WAVE_RISE_SPEED,
 } from "../../lib/hooks";
 
 // Cliffs are stills of the Environment_Cliff 3D models, rendered in exactly the frame their old WebGL
@@ -13,7 +15,7 @@ import {
 const cliffSrc = (cliff: number) => `/rocks/cliff_${cliff}_frame.webp`;
 
 const SEA_FLOOR_RISE_SPEED = 3; // px risen per px scrolled once the wave has covered the screen
-const SEA_FLOOR_DELAY_PX = 150; // extra scroll after the wave covers the screen before the sand starts rising
+const SEA_FLOOR_DELAY_PX = 300; // extra scroll after the wave covers the screen before the sand starts rising
 const SEA_FLOOR_HOLD_PX = 250; // scroll px the sand stays still after reaching its resting spot, before it starts flowing
 export const PX_PER_LAYER = 300; // scroll px for one sand layer to flow forward by one place
 
@@ -465,6 +467,10 @@ function SandLayer({
 // Scroll-driven state of the sea floor, shared so OceanScene can also react to it.
 // offset = px the strip still sits below its resting spot; t = layers flowed forward so far
 // (0 while the sand is rising or holding still).
+// Scroll px into the ocean track at which the sand starts flowing (t starts rising), for a given screen height.
+export const sandFlowStartPx = (vh: number) =>
+  (vh + WAVE_FRONT_TOP_OFFSET_PX) / WAVE_RISE_SPEED + SEA_FLOOR_DELAY_PX + vh / SEA_FLOOR_RISE_SPEED + SEA_FLOOR_HOLD_PX;
+
 export function useSandFlow() {
   const vh = useViewportHeight();
   const pastCover = usePxPastCover();
