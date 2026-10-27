@@ -17,6 +17,17 @@ const CAMERA_DIR = new THREE.Vector3(0.83, 0.3, 0.67).normalize();
 const LOOK_AT = new THREE.Vector3(0, 1.4, -0.2);
 const START_DISTANCE = 22;
 const DOLLY_FACTOR = 1.8; // camera ends this many times farther away at progress=1
+const FPS = 30; // the rocking is slow - 30fps looks the same as 60 at half the GPU work
+
+// Renders at a fixed FPS instead of every display frame (the Canvas runs frameloop="demand").
+function FrameLimiter() {
+  const invalidate = useThree((s) => s.invalidate);
+  useEffect(() => {
+    const id = setInterval(() => invalidate(), 1000 / FPS);
+    return () => clearInterval(id);
+  }, [invalidate]);
+  return null;
+}
 
 function ShipModel({ onLoaded }: { onLoaded: () => void }) {
   const { scene } = useGLTF(SHIP_URL);
@@ -137,7 +148,8 @@ function Boat3D({ progress = 0 }: { progress?: number }) {
         }}
         style={{ background: "transparent" }}
         camera={{ fov: 30, near: 0.5, far: 200 }}
-        dpr={[1, 2]}
+        dpr={[1, 1.5]} // 2x is ~1.8x the pixels for little visible gain on a boat this small
+        frameloop="demand" // FrameLimiter drives redraws
       >
         <ambientLight intensity={1.1} />
         <directionalLight position={[6, 9, -4]} intensity={2} />
@@ -147,6 +159,7 @@ function Boat3D({ progress = 0 }: { progress?: number }) {
           <Foam />
         </Suspense>
         <DollyCamera progress={progress} />
+        <FrameLimiter />
       </Canvas>
     </div>
   );

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { setScrollOffset } from "../scrollBridge";
+import { setScrollPx } from "../scrollBridge";
 
 // Feeds scrollBridge from real window scroll, measured relative to the
 // track's own position in the page - not a custom overflow div, so
@@ -20,11 +20,7 @@ export function ScrollDriver({
     const commit = () => {
       queued = false;
       const max = track.offsetHeight - window.innerHeight;
-      const px =
-        max > 0
-          ? Math.min(max, Math.max(0, -track.getBoundingClientRect().top))
-          : 0;
-      setScrollOffset(max > 0 ? px / max : 0, px);
+      setScrollPx(max > 0 ? Math.min(max, Math.max(0, -track.getBoundingClientRect().top)) : 0);
     };
     const handleScroll = () => {
       if (queued) return;

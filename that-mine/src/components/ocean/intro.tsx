@@ -2,6 +2,7 @@
 
 import { useScrollPx } from "../scrollBridge";
 import { useViewportHeight, WAVE_FRONT_TOP_OFFSET_PX, WAVE_RISE_SPEED } from "../../lib/hooks";
+import { clamp01 } from "../../lib/math";
 
 const TEXT_HALF_HEIGHT_PX = 110; // rough half-height of the title block, centered on screen
 const CREST_DEPTH_PX = 70; // the crest line sits about this far below the wave layer's top edge
@@ -14,7 +15,7 @@ export default function Intro() {
   const vh = useViewportHeight();
   const crestY = vh + WAVE_FRONT_TOP_OFFSET_PX + CREST_DEPTH_PX - px * WAVE_RISE_SPEED;
   const textBottom = vh / 2 + TEXT_HALF_HEIGHT_PX;
-  const visible = vh > 0 ? Math.min(1, Math.max(0, (crestY - textBottom) / 120)) : 1;
+  const visible = vh > 0 ? clamp01((crestY - textBottom) / 120) : 1;
 
   return (
     <div
@@ -116,7 +117,8 @@ export function DiveHint({ visible }: { visible: number }) {
         opacity: visible,
       }}
     >
-      {/* Frosted pill so the text stays readable over whatever coral sits behind it. */}
+      {/* Solid-ish pill so the text stays readable over whatever coral sits behind it (no backdrop blur:
+          that re-blurs the moving scene behind it every frame). */}
       <div
         style={{
           display: "flex",
@@ -126,8 +128,7 @@ export function DiveHint({ visible }: { visible: number }) {
           padding: "0.4rem 1.1rem",
           borderRadius: 999,
           color: "#0d3d50",
-          background: "rgba(255,255,255,0.6)",
-          backdropFilter: "blur(6px)",
+          background: "rgba(255,255,255,0.78)",
           animation: "bounce-down 1.8s ease-in-out infinite",
         }}
       >

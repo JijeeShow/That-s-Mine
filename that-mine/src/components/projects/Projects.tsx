@@ -1,13 +1,9 @@
 import { CLEARINGS } from "../ocean/canyonLayout";
-
-const smoothstep = (v: number) => {
-  const x = Math.min(1, Math.max(0, v));
-  return x * x * (3 - 2 * x);
-};
+import { smooth } from "../../lib/math";
 
 // One per project wall in the canyon, in order. Drafted from the About text - edit the names, wording and
 // tags to match the real projects (the last one is this site).
-export const PROJECTS = [
+const PROJECTS = [
   {
     title: "Finance & Accounting Platform",
     body: "Ledgers, invoicing and month-end reports for a finance team. I built features end to end, from the database tables to the screens they use every day.",
@@ -34,7 +30,7 @@ export const PROJECTS = [
 // leave 0 -> 1: walking into the canyon; the title fades as you set off. focus[i] 0 -> 1: how much the
 // bay for project i is in view; its card slides in on that side of the screen.
 export default function Projects({ arrive, leave, focus }: { arrive: number; leave: number; focus: number[] }) {
-  const title = smoothstep((arrive - 0.75) / 0.25) * (1 - smoothstep((leave - 0.01) / 0.05));
+  const title = smooth((arrive - 0.75) / 0.25) * (1 - smooth((leave - 0.01) / 0.05));
 
   return (
     <div style={{ position: "absolute", inset: 0, zIndex: 15, pointerEvents: "none", color: "white" }}>
@@ -70,7 +66,7 @@ export default function Projects({ arrive, leave, focus }: { arrive: number; lea
       )}
 
       {PROJECTS.map((project, i) => {
-        const f = smoothstep(focus[i] ?? 0);
+        const f = smooth(focus[i] ?? 0);
         if (f <= 0.01) return null;
         const onRight = (CLEARINGS[i]?.side ?? 1) === 1;
         return (

@@ -1,7 +1,7 @@
 import { useId } from "react";
 import FishBackdrop from "./FishBackdrop";
+import { clamp01 } from "../../lib/math";
 
-const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 const easeOut = (v: number) => 1 - Math.pow(1 - v, 3); // fast start, soft landing
 const easeIn = (v: number) => v * v * v; // slow start, fast finish
 const easeOutBack = (v: number) =>
@@ -202,7 +202,7 @@ export default function Aboutme({
   const toLast = LAST_CHUNK - scroll; // 1 -> 0 as the last bubble comes to the middle
 
   return (
-    <>
+    <div id="about" >
       <FishBackdrop visible={clamp01(progress * 1.5)} />
       {CHUNKS.map((chunk, i) => {
         const d = i - scroll; // <0 already passed (above), >0 still to come (below)
@@ -348,6 +348,6 @@ export default function Aboutme({
           </div>
         );
       })}
-    </>
+    </div>
   );
 }

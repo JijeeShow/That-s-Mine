@@ -264,21 +264,3 @@ export function SeaSnow({ scrollBoost = 1 }: { scrollBoost?: number }) {
   );
 }
 
-// Darkens the scene a small step for each deeper zone you travel into (About = 0, Projects = 1, ...).
-// Sits over the water and sand but under the bubbles and section text.
-const ZONE_DARKEN = 0.14; // opacity added per zone
-export function SeaZoneTint({ depth }: { depth: number }) {
-  if (depth <= 0) return null;
-  return (
-    <div
-      style={{
-        position: "absolute",
-        inset: 0,
-        zIndex: 6,
-        pointerEvents: "none",
-        background: "#04182b",
-        opacity: Math.min(0.6, depth * ZONE_DARKEN),
-      }}
-    />
-  );
-}

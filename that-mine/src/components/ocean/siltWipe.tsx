@@ -1,3 +1,5 @@
+import { smooth } from "../../lib/math";
+
 // Scene change between About and Projects: the sand kicks up into a murky silt cloud, then settles.
 // Scroll-driven, progress 0 -> 1:
 //  0 -> 0.45  plumes of silt billow up from the floor while murky water rises behind them and covers the screen
@@ -6,12 +8,6 @@
 
 export const WIPE_COVER_FROM = 0.45;
 export const WIPE_COVER_TO = 0.55;
-
-const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
-const smoothstep = (v: number) => {
-  const x = clamp01(v);
-  return x * x * (3 - 2 * x);
-};
 
 // Pseudo-random in 0..1, different per item (i) and per property (k).
 const rand = (i: number, k: number) => {
@@ -46,11 +42,11 @@ const GRAINS = Array.from({ length: 130 }, (_, i) => ({
 export default function SiltWipe({ progress: p }: { progress: number }) {
   if (p <= 0 || p >= 1) return null;
 
-  const rise = smoothstep(p / WIPE_COVER_FROM); // cloud kicking up
-  const settle = smoothstep((p - WIPE_COVER_TO) / (0.97 - WIPE_COVER_TO)); // cloud settling
+  const rise = smooth(p / WIPE_COVER_FROM); // cloud kicking up
+  const settle = smooth((p - WIPE_COVER_TO) / (0.97 - WIPE_COVER_TO)); // cloud settling
 
   // Murky water behind the plumes: climbs from the bottom while kicking up...
-  const hazeTop = -30 + smoothstep((p - 0.08) / (WIPE_COVER_FROM - 0.08)) * 170; // % from the bottom
+  const hazeTop = -30 + smooth((p - 0.08) / (WIPE_COVER_FROM - 0.08)) * 170; // % from the bottom
   const hazeMask = `linear-gradient(to top, #000 ${hazeTop - 35}%, transparent ${hazeTop}%)`;
   // ...and while settling, everything clears from the top down, as the silt sinks.
   const clearLine = -40 + settle * 175; // % from the top

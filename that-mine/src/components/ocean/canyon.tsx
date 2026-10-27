@@ -5,6 +5,7 @@ import { Canvas, useThree } from "@react-three/fiber";
 import { useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import { CHASM_S, CLEARINGS, LIP_S, PATH_POINTS, floorAt, pathS } from "./canyonLayout";
+import { clamp01, smooth } from "../../lib/math";
 
 // Individual rock pieces from the canyon kit. Each is long along local Z (the direction of travel),
 // with its inner face toward local +X, so a left-wall piece faces the path as is and a right-wall
@@ -84,9 +85,7 @@ const steps = (from: number, to: number) => {
 };
 const TRENCH = steps(CHASM_S, LIP_S);
 
-const clamp01 = (x: number) => Math.min(1, Math.max(0, x));
 const span = (x: number, a: number, b: number) => clamp01((x - a) / (b - a));
-const smooth = (x: number) => x * x * (3 - 2 * x);
 // How far the trench cliffs have leaned back at height y (0 at the rim).
 const flare = (y: number) => FLARE * smooth(clamp01(-y / FLARE_DEPTH));
 // How far a rock face juts out at (a along it, height y): upright ribs, smooth both ways.

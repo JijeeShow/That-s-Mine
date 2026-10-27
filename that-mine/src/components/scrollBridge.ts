@@ -1,5 +1,5 @@
 // Tiny pub/sub sharing the page's scroll position between components that
-// don't know about each other (Navbar, the ocean layers). OceanScene's
+// don't know about each other (the ocean layers). OceanScene's
 // ScrollDriver is the only writer.
 //
 // State lives on `window`, not in module scope, because a component loaded
@@ -8,43 +8,52 @@
 
 import { useSyncExternalStore } from "react";
 
-type Listener = (offset: number) => void;
-
 type Store = {
-  offset: number; // 0-1 fraction of the ocean track scrolled
-  px: number; // raw px into the track, for anything that must finish after an exact distance
-  listeners: Set<Listener>;
+  px: number; // px scrolled into the ocean track
+  listeners: Set<() => void>;
 };
 
 declare global {
   interface Window {
     __scrollBridge?: Store;
+    __sections?: Record<string, number>;
   }
 }
 
-const newStore = (): Store => ({ offset: 0, px: 0, listeners: new Set() });
+const newStore = (): Store => ({ px: 0, listeners: new Set() });
 
 function getStore(): Store {
   if (typeof window === "undefined") return newStore(); // SSR: throwaway store
   return (window.__scrollBridge ??= newStore());
 }
 
-export function setScrollOffset(offset: number, px: number = 0) {
+export function setScrollPx(px: number) {
   const store = getStore();
-  if (offset === store.offset && px === store.px) return;
-  store.offset = offset;
+  if (px === store.px) return;
   store.px = px;
-  store.listeners.forEach((listener) => listener(offset));
+  store.listeners.forEach((listener) => listener());
 }
 
-const getScrollOffset = () => getStore().offset;
 const getScrollPx = () => getStore().px;
 
-function subscribeScrollOffset(listener: Listener) {
+function subscribe(listener: () => void) {
   const store = getStore();
   store.listeners.add(listener);
   return () => store.listeners.delete(listener);
 }
 
-export const useScrollOffset = () => useSyncExternalStore(subscribeScrollOffset, getScrollOffset, () => 0);
-export const useScrollPx = () => useSyncExternalStore(subscribeScrollOffset, getScrollPx, () => 0);
+export const useScrollPx = () => useSyncExternalStore(subscribe, getScrollPx, () => 0);
+
+// Window scrollY of each named section (home, about, projects, contact). The scene is pinned, so a plain
+// #id anchor can't find them; OceanScene works them out from its scroll timeline and publishes them here.
+export function setSectionTargets(sections: Record<string, number>) {
+  window.__sections = sections;
+}
+
+// Scrolls to a published section. Returns false if it isn't known (yet), so callers can fall back.
+export function scrollToSection(id: string, behavior: ScrollBehavior = "smooth") {
+  const top = typeof window === "undefined" ? undefined : window.__sections?.[id];
+  if (top === undefined) return false;
+  window.scrollTo({ top, behavior });
+  return true;
+}

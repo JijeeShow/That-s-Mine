@@ -3,11 +3,13 @@
 import { type CSSProperties, useEffect, useMemo, useState } from "react";
 import {
   usePxPastCover,
-  useSmoothValue,
+  SCROLL_EASE,
+  useSmoothValues,
   useViewportHeight,
   WAVE_FRONT_TOP_OFFSET_PX,
   WAVE_RISE_SPEED,
 } from "../../lib/hooks";
+import { clamp01 } from "../../lib/math";
 
 // Cliffs are stills of the Environment_Cliff 3D models, rendered in exactly the frame their old WebGL
 // canvas had (box aspect 54:52, same camera, lights and fit margin), so an <img> in the same box looks
@@ -51,7 +53,7 @@ const SAND_TO = [
 // HAZE_COLOR by haze(p) - nothing up front, the most on the horizon.
 const HAZE_COLOR = [0x35, 0x8f, 0xde]; // the water just above the sand
 const HAZE_CSS = `rgb(${HAZE_COLOR.join(",")})`;
-const haze = (p: number) => 0.65 * Math.min(1, Math.max(0, (p - 0.3) / 2.7));
+const haze = (p: number) => 0.65 * clamp01((p - 0.3) / 2.7);
 
 // Caustics: light rippling over the sand - two copies of one tileable texture drifting across each other.
 // w/h = tile size in px, squashed vertically since the sea floor is seen at a low angle;
@@ -269,8 +271,12 @@ function SandLayer({
   const { surface, items } = pattern;
   const top = sample(TOP_VH, p);
   const scale = 1 - 0.1 * Math.min(3, Math.max(0, p)); // corals shrink slightly with distance
-  const itemOpacity = Math.min(1, Math.max(0, (2.5 - p) / 0.5)); // items appear only once their dune has mostly faded in
+  const itemOpacity = clamp01((2.5 - p) / 0.5); // items appear only once their dune has mostly faded in
   const hz = haze(p);
+  // The dune's colors use p in steps of 0.02 - too small to see, but the svg (and its blur filter) then only
+  // repaints when a step is crossed instead of every frame; the layer itself just slides on the compositor.
+  const look = Math.round(p * 50) / 50;
+  const lookHz = haze(look);
   const line = surfacePath(surface);
   const body = `${line} L1900,${SVG_BOTTOM_VH} L0,${SVG_BOTTOM_VH} Z`;
   const mask = sandMask(body);
@@ -281,8 +287,9 @@ function SandLayer({
         position: "absolute",
         inset: 0,
         zIndex: Math.round(100 - p * 10), // nearer layers cover the bases of farther ones
-        opacity: Math.min(1, Math.max(0, 3 - p)), // the new layer fades in on the horizon
+        opacity: clamp01(3 - p), // the new layer fades in on the horizon
         transform: `translateY(${top}vh)`,
+        willChange: "transform, opacity",
       }}
     >
       <svg
@@ -308,8 +315,8 @@ function SandLayer({
             x2="0"
             y2="14"
           >
-            <stop offset="0%" stopColor={sampleColor(SAND_FROM, p, hz)} />
-            <stop offset="100%" stopColor={sampleColor(SAND_TO, p, hz)} />
+            <stop offset="0%" stopColor={sampleColor(SAND_FROM, look, lookHz)} />
+            <stop offset="100%" stopColor={sampleColor(SAND_TO, look, lookHz)} />
           </linearGradient>
           <filter
             id={`sandShade${n}`}
@@ -333,7 +340,7 @@ function SandLayer({
         <path
           d={line}
           fill="none"
-          stroke={`rgba(255,246,220,${0.6 * (1 - hz)})`}
+          stroke={`rgba(255,246,220,${0.6 * (1 - lookHz)})`}
           strokeWidth="1.5"
           vectorEffect="non-scaling-stroke"
         />
@@ -350,7 +357,7 @@ function SandLayer({
             width: "100%",
             height: `${CAUSTIC_BOTTOM_VH - CAUSTIC_TOP_VH}vh`,
             overflow: "hidden",
-            opacity: CAUSTIC_MAX * Math.min(1, Math.max(0, 1 - p / 3)),
+            opacity: CAUSTIC_MAX * clamp01(1 - p / 3),
             maskImage: mask,
             WebkitMaskImage: mask,
             maskSize: "100% 100%",
@@ -476,16 +483,15 @@ export function useSandFlow() {
   const pastCover = usePxPastCover();
   const riseDistance = vh / SEA_FLOOR_RISE_SPEED;
   const pastDelay = Math.max(0, pastCover - SEA_FLOOR_DELAY_PX);
-  // Both the rise and the flow ease toward their scroll-driven targets, so they glide together.
-  const risen = useSmoothValue(
-    Math.min(vh, pastDelay * SEA_FLOOR_RISE_SPEED),
-    0.12,
-    0.3,
-  );
-  const t = useSmoothValue(
-    Math.max(0, pastDelay - riseDistance - SEA_FLOOR_HOLD_PX) / PX_PER_LAYER,
-    0.1,
-    0.0015,
+  // Both the rise and the flow ease toward their scroll-driven targets in one loop, so they glide together
+  // and the whole scene re-renders once per frame rather than once per value.
+  const [risen, t] = useSmoothValues(
+    [
+      Math.min(vh, pastDelay * SEA_FLOOR_RISE_SPEED),
+      Math.max(0, pastDelay - riseDistance - SEA_FLOOR_HOLD_PX) / PX_PER_LAYER,
+    ],
+    [SCROLL_EASE, SCROLL_EASE],
+    [0.3, 0.0015],
   );
   return { offset: vh - risen, t };
 }

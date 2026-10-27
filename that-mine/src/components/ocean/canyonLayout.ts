@@ -1,5 +1,7 @@
 // Shared canyon layout numbers, kept free of three.js so the page can use them without loading the 3D scene.
 
+import { smooth } from "../../lib/math";
+
 // The winding path as a program of straight runs and turns (turn in degrees, + = left), walked from the
 // entrance heading into the screen (-z). Bends alternate, and each marked one carries a project on the
 // wall on its outside: a left bend puts it on the right of the screen, a right bend on the left.
@@ -59,10 +61,8 @@ const START_S = 3; // standing in the entrance
 const END_S = CLEARINGS[CLEARINGS.length - 1].at + 18; // a little past the last project
 export const pathS = (travel: number) => START_S + (END_S - START_S) * travel;
 
-const smoothstep = (x: number, min: number, max: number) => {
-  const t = Math.min(1, Math.max(0, (x - min) / (max - min)));
-  return t * t * (3 - 2 * t);
-};
+// Smoothstep of x across min..max.
+const smoothstep = (x: number, min: number, max: number) => smooth((x - min) / (max - min));
 
 // How much project wall i is in view at path position s: rises as the bend brings it across the screen,
 // holds while you round it, falls once it's behind you.

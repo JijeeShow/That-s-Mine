@@ -91,27 +91,6 @@ body {
   }
 }
 
-/* Deep zone: jellyfish bobbing and their tentacles swaying. */
-@keyframes jelly-bob {
-  0%,
-  100% {
-    translate: 0 0;
-  }
-  50% {
-    translate: 0 -8px;
-  }
-}
-
-@keyframes jelly-sway {
-  0%,
-  100% {
-    rotate: -4deg;
-  }
-  50% {
-    rotate: 4deg;
-  }
-}
-
 /* Lighthouse lamp breathing on the horizon. */
 @keyframes lamp-pulse {
   0%,

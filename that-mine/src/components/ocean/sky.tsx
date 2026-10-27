@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { SEA_LEVEL_PERCENT } from "../../lib/const/constants";
 import { useScrollPx } from "../scrollBridge";
-import { useSmoothValue, useViewportHeight } from "../../lib/hooks";
+import { SCROLL_EASE, useSmoothValue, useViewportHeight } from "../../lib/hooks";
 import SkyDecor from "./skydecor";
 
 const Boat3D = dynamic(() => import("../Boat3D"), { ssr: false });
@@ -21,7 +21,7 @@ export default function SkyOverlay() {
   const vh = useViewportHeight();
   const progress = vh > 0 ? Math.min(1, px / (vh * 1.1)) : 0; // 1.1 screens to slide away
   // 500px of scroll to finish sailing; eased per frame so wheel steps glide instead of jumping.
-  const boatProgress = useSmoothValue(easeOutCubic(Math.min(1, px / 500)), 0.12, 0.0005);
+  const boatProgress = useSmoothValue(easeOutCubic(Math.min(1, px / 500)), SCROLL_EASE, 0.0005);
   const translateVh = -progress * 100;
   const opacity = 1 - Math.max(0, (progress - 0.85) / 0.15); // only fade right at the end
 

@@ -4,26 +4,21 @@ import { Suspense, useEffect, useMemo, useRef } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { useGLTF } from "@react-three/drei";
 import * as THREE from "three";
+import { smooth } from "../../lib/math";
 
 const MODEL = "/models/anglerfish/anglerfish.glb";
 const MOUTH_OPEN = 0.78; // jaw angle (radians) wide open, as in the model's MouthOpen pose
 const LURE_TIP = new THREE.Vector3(0, 0.59, 1.05); // the glowing bulb, in the Lure node's space
-const LURE_COLOR = "#8fffe0";
+const LURE_COLOR = "#8DF8FF";
 const CAMERA_Z = 6.5;
 const FOV = 38;
-const MOUTH_HALF = 0.95; // half the mouth's width, in model units
+const MOUTH_HALF = 0.55; // half the mouth's width, in model units
 const MOUTH_FILL = 0.78; // how much of the screen width the open mouth spans up close
 const MOUTH_FILL_NARROW = 1.15; // on a phone it comes closer, past the screen edges, so the text stays readable
 const FAR_Z = -14; // where it starts, small in the dark
 const TEXT_W = 560; // px width the mouth text is laid out at, before scaling to the mouth
 
 export type ContactLink = { label: string; detail?: string; href: string };
-
-const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
-const smooth = (v: number) => {
-  const x = clamp01(v);
-  return x * x * (3 - 2 * x);
-};
 
 // Soft round glow for the lure, drawn as an additive sprite.
 function makeGlow() {
@@ -125,7 +120,7 @@ function Fish({ near, open, mouth }: { near: number; open: number; mouth: React.
 
 // Contact zone: the anglerfish swims up out of the dark straight at you until it fills the screen, opens its
 // mouth, and the contact details show inside it. progress 0 -> 1 is the contact zone's scroll.
-export default function AnglerContact({ progress, links }: { progress: number; links: ContactLink[]; narrow?: boolean }) {
+export default function AnglerContact({ progress, links }: { progress: number; links: ContactLink[] }) {
   const near = smooth((progress - 0.12) / 0.43); // after the skills have drifted away
   const open = smooth((progress - 0.45) / 0.23);
   const text = smooth((progress - 0.62) / 0.23);
