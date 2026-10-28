@@ -6,6 +6,7 @@ import { useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import { CHASM_S, CLEARINGS, LIP_S, PATH_POINTS, floorAt, pathS } from "./canyonLayout";
 import { clamp01, smooth } from "../../lib/math";
+import { LightShafts, makeCausticTexture } from "./canyonLife";
 
 // Individual rock pieces from the canyon kit. Each is long along local Z (the direction of travel),
 // with its inner face toward local +X, so a left-wall piece faces the path as is and a right-wall
@@ -486,7 +487,9 @@ let sand: THREE.CanvasTexture | null = null;
 const sandTexture = () => (sand ??= makeSandTexture());
 
 // Rippled sand floor the canyon stands on: it ends at the cliff edge, with the trench cut into it. lit 0..1 dims its glow.
-function Ground({ lit }: { lit: number }) {
+// Ripple light (caustics) plays over it, sliding as you walk (s).
+function Ground({ lit, s }: { lit: number; s: number }) {
+  const caustics = useMemo(makeCausticTexture, []);
   const { geometry, map } = useMemo(() => {
     // Drawn in (x, -z), then laid flat; UVs are in world units.
     const flat = (p: THREE.Vector3) => new THREE.Vector2(p.x, -p.z);
@@ -509,6 +512,18 @@ function Ground({ lit }: { lit: number }) {
   return (
     <mesh geometry={geometry} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
       <meshStandardMaterial map={map} color={SAND} emissive={SAND} emissiveIntensity={0.28 * lit} roughness={1} />
+      <mesh geometry={geometry} renderOrder={1}>
+        <meshBasicMaterial
+          map={caustics}
+          map-offset={[s * 0.006, s * 0.004]}
+          color="#f4fbff"
+          transparent
+          opacity={0.32 * lit}
+          depthWrite={false}
+          polygonOffset
+          polygonOffsetFactor={-2}
+        />
+      </mesh>
     </mesh>
   );
 }
@@ -719,9 +734,10 @@ export default function Canyon({ visible, travel, descent = 0, sink = 0 }: { vis
           shadow-bias={-0.0005}
           shadow-normalBias={0.03}
         />
-        <Ground lit={lit} />
+        <Ground lit={lit} s={pose.s} />
         <Cliff lit={lit} />
         <DriftSnow />
+        <LightShafts until={CHASM_S + 20} frame={frameAt} lit={lit * (1 - pose.blue)} />
         <Suspense fallback={null}>
           <Rocks s={pose.s} y={pose.position.y} ahead={Math.min(DRAW_AHEAD, fogFar)} />
         </Suspense>

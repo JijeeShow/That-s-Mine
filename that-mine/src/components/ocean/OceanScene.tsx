@@ -30,6 +30,7 @@ const TRACK_VH = 1500;
 const BUBBLE_STAND_PX = 300; // scroll px a bubble rests still in the middle
 const BUBBLE_MOVE_PX = 360; // scroll px for it to give way to the next one
 const WIPE_PX = 1000; // scroll px of the bubble rush that changes scene from About to the canyon entrance
+const TITLE_HOLD_PX = 600; // scroll px standing still at the canyon entrance with the Projects title up
 const TRAVEL_PX = 5600; // scroll px of walking the winding canyon path past all the projects
 const DESCENT_PX = 4600; // scroll px of walking down the short slope after the canyon, out past the cliff edge and down along the cliff
 const SKILLS_PX = 2400; // scroll px of the deep zone where the skill groups fade in one by one
@@ -63,12 +64,10 @@ export default function OceanScene() {
   const wipeStart = (ABOUT_CHUNK_COUNT - 1) * period + BUBBLE_STAND_PX;
   const wipe = clamp01((flowPx - wipeStart) / WIPE_PX);
   const inCanyon = wipe >= (WIPE_COVER_FROM + WIPE_COVER_TO) / 2;
-  const travel = Math.min(
-    1,
-    Math.max(0, (flowPx - wipeStart - WIPE_PX) / TRAVEL_PX),
-  );
-  const descent = clamp01((flowPx - wipeStart - WIPE_PX - TRAVEL_PX) / DESCENT_PX);
-  const deepStart = wipeStart + WIPE_PX + TRAVEL_PX + DESCENT_PX;
+  const travelStart = wipeStart + WIPE_PX + TITLE_HOLD_PX;
+  const travel = clamp01((flowPx - travelStart) / TRAVEL_PX);
+  const descent = clamp01((flowPx - travelStart - TRAVEL_PX) / DESCENT_PX);
+  const deepStart = travelStart + TRAVEL_PX + DESCENT_PX;
   const skills = clamp01((flowPx - deepStart) / SKILLS_PX);
   const contact = clamp01((flowPx - deepStart - SKILLS_PX) / CONTACT_PX);
   // Where the navbar's sections sit on this timeline, as window scrollY: the sand's flow starts sandFlowStartPx
@@ -92,7 +91,7 @@ export default function OceanScene() {
   // screen size gets exactly enough scroll to walk the whole canyon.
   const trackHeight =
     vh > 0
-      ? `${sandFlowStartPx(vh) + wipeStart + WIPE_PX + TRAVEL_PX + DESCENT_PX + SKILLS_PX + CONTACT_PX + END_REST_PX + vh}px`
+      ? `${sandFlowStartPx(vh) + deepStart + SKILLS_PX + CONTACT_PX + END_REST_PX + vh}px`
       : `${TRACK_VH}vh`;
 
   return (
